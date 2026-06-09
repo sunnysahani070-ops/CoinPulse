@@ -73,3 +73,33 @@ export async function getPools(
         return fallback;
     }
 }
+
+export async function searchCoins(query: string): Promise<SearchCoin[]> {
+    try {
+        const { coins } = await fetcher<{ coins: SearchCoin[] }>('/search', { query });
+        
+        const topCoins = coins.slice(0, 10);
+        const coinIds = topCoins.map((c) => c.id).join(',');
+
+        if (!coinIds) return [];
+
+        const marketData = await fetcher<any[]>('/coins/markets', {
+            vs_currency: 'usd',
+            ids: coinIds,
+        });
+
+        return topCoins.map((coin) => {
+            const market = marketData.find((m) => m.id === coin.id);
+            return {
+                ...coin,
+                data: {
+                    price: market?.current_price,
+                    price_change_percentage_24h: market?.price_change_percentage_24h ?? 0,
+                },
+            };
+        });
+    } catch (error) {
+        console.error('Error searching coins:', error);
+        return [];
+    }
+}
